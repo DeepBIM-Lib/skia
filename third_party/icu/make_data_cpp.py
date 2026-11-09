@@ -42,8 +42,9 @@ def convert(fmt, name, src_path, dst_path):
         o.write(footer.format(name))
 
 
-cpp = ('#include <cstdint>\nextern "C" uint32_t {0}[] __attribute__((aligned(16))) = {{\n',
-       '', ',', '}};\n')
+cpp = ('#include <cstdint>\n#include "unicode/utypes.h"\n'
+       'extern "C" {{\nalignas(16) extern const uint32_t {0}[] = {{\n',
+       '', ',', '}};\n}}\n')
 
 if __name__ == '__main__':
     print('\n'.join('>>>  %r' % x for x in sys.argv))

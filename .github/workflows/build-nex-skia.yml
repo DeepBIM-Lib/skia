@@ -6,6 +6,8 @@ on:
     paths:
       - ".github/workflows/build-nex-skia.yml"
       - "tools/skia_release/**"
+      - "third_party/icu/**"
+      - "third_party/libjpeg-turbo/**"
   workflow_dispatch:
 
 permissions:
@@ -50,6 +52,10 @@ jobs:
         run: >-
           python tools/skia_release/build.py --skia-dir .
           --build-type ${{ matrix.build_type }} --target windows --machine x64
+      - name: Verify Windows SDK
+        run: >-
+          python tools/skia_release/verify_windows.py --skia-dir .
+          --build-type ${{ matrix.build_type }}
       - name: Archive
         run: >-
           python tools/skia_release/archive.py --skia-dir .
@@ -145,8 +151,10 @@ jobs:
             "Windows x64: Debug /MDd and Release /MD." \
             "Linux x64: Debug and Release, GCC 11, libstdc++ ABI 1." \
             "Ganesh is enabled; Graphite and all concrete GPU backends are disabled." \
+            "Bundled JPEG stays enabled with Chromium-prefixed symbols." \
+            "ICU data is embedded; no icudtl.dat deployment is required." \
             "" \
-            "Use matching headers, libraries and ICU data from the same build." \
+            "Use matching headers and libraries from the same build." \
             "Verify downloaded archives with SHA256SUMS." > release-notes.md
 
           gh release create "$tag" "${archives[@]}" SHA256SUMS \
@@ -155,5 +163,20 @@ jobs:
             --notes-file release-notes.md --draft
           gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
 
+          gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${tag}" > published-release.json
+          jq -e --arg tag "$tag" \
+            '.tag_name == $tag and .draft == false and (.assets | length == 5) and all(.assets[]; .size > 0)' \
+            published-release.json
+
           release_url=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
           printf '### SDK release\n\n[%s](%s)\n' "$tag" "$release_url" >> "$GITHUB_STEP_SUMMARY"
+
+          # Retire this exact superseded SDK release only after publication.
+          old_tag="nex-skia-m148-c546a830988b816335dc99baef1dcbc5fd97d4c1-42606652585-1"
+          old_release=$(gh api "repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq '.[] | select(.id == 439047311) | .tag_name')
+          if [[ -n "$old_release" ]]; then
+            [[ "$old_release" == "$old_tag" ]]
+            gh api --method DELETE "repos/${GITHUB_REPOSITORY}/releases/439047311"
+            printf '\nRetired superseded SDK release: %s. Source tag retained.\n' "$old_tag" >> "$GITHUB_STEP_SUMMARY"
+          fi

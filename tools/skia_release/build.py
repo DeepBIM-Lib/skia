@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import hashlib
 import json
 import os
 import shutil
@@ -96,6 +97,8 @@ def main():
       'is_trivial_abi=false',
       'skia_use_system_expat=false',
       'skia_use_system_libjpeg_turbo=false',
+      'skia_use_libjpeg_turbo_decode=true',
+      'skia_use_libjpeg_turbo_encode=true',
       'skia_use_system_libpng=false',
       'skia_use_system_libwebp=false',
       'skia_use_system_zlib=false',
@@ -105,6 +108,7 @@ def main():
       'skia_use_system_icu=false',
       'skia_use_harfbuzz=true',
       'skia_use_icu=true',
+      'skia_embed_icu_data=true',
       'skia_enable_pdf=true',
       'skia_enable_skottie=false',
       'skia_enable_tools=false',
@@ -151,6 +155,13 @@ def main():
       'machine': machine,
       'runtime': runtime,
       'gn_args': args,
+      'jpeg_symbols': 'chromium-prefixed',
+      'icu_data': {
+          'mode': 'embedded',
+          'size_bytes': (skia_dir / 'third_party/externals/icu/common/icudtl.dat').stat().st_size,
+          'sha256': hashlib.sha256(
+              (skia_dir / 'third_party/externals/icu/common/icudtl.dat').read_bytes()).hexdigest(),
+      },
       'based_on': 'JetBrains/skia@fc4d63be29654dcb972fa1642e54505aae3590cf',
   }
   (skia_dir / out / 'nex-build-info.json').write_text(json.dumps(info, indent=2) + '\n', encoding='utf-8')

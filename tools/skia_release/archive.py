@@ -40,7 +40,6 @@ def main():
       out_bin + '/*.a',
       out_bin + '/*.a.wasm', # TODO: temporary for m147, in the next release, change it to '.wasm.a'
       out_bin + '/*.lib',
-      out_bin + '/icudtl.dat',
       'include/**/*',
       'modules/particles/include/*.h',
       'modules/skottie/include/*.h',

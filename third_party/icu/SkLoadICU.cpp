@@ -17,6 +17,27 @@
 #include <string>
 
 #include "unicode/udata.h"
+#include "unicode/uclean.h"
+
+#if defined(SK_EMBEDDED_ICU_DATA)
+
+static bool init_embedded_icu() {
+    UErrorCode error = U_ZERO_ERROR;
+    udata_setFileAccess(UDATA_NO_FILES, &error);
+    if (U_FAILURE(error)) {
+        fprintf(stderr, "udata_setFileAccess() returned %d.\n", (int)error);
+        return false;
+    }
+
+    u_init(&error);
+    if (U_FAILURE(error)) {
+        fprintf(stderr, "u_init() returned %d.\n", (int)error);
+        return false;
+    }
+    return true;
+}
+
+#else
 
 static void* win_mmap(const wchar_t* dataFile) {
     if (!dataFile) {
@@ -109,11 +130,17 @@ static bool load_from(const std::wstring& dir) {
     return false;
 }
 
+#endif  // defined(SK_EMBEDDED_ICU_DATA)
+
 bool SkLoadICU() {
     static bool good = false;
     static std::once_flag flag;
     std::call_once(flag, []() {
+#if defined(SK_EMBEDDED_ICU_DATA)
+        good = init_embedded_icu();
+#else
         good = load_from(executable_directory()) || load_from(library_directory());
+#endif
     });
     return good;
 }

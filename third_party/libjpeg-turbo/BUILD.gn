@@ -16,7 +16,20 @@ if (skia_use_system_libjpeg_turbo) {
     libs = [ "jpeg" ]
   }
 } else {
+  config("libjpeg_mangle") {
+    # Chromium's mapping covers the 8/12/16-bit APIs. Skia also enables
+    # arithmetic coding and links data symbols absent from that mapping.
+    defines = [
+      "MANGLE_JPEG_NAMES",
+      "jinit_arith_decoder=chromium_jinit_arith_decoder",
+      "jinit_arith_encoder=chromium_jinit_arith_encoder",
+      "jpeg_aritab=chromium_jpeg_aritab",
+      "jpeg_natural_order=chromium_jpeg_natural_order",
+    ]
+  }
+
   source_set("libjpeg_headers") {
+    public_configs = [ ":libjpeg_mangle" ]
     sources = [
       "../externals/libjpeg-turbo/src/jconfig.h",
       "../externals/libjpeg-turbo/src/jdct.h",

@@ -7,6 +7,7 @@ import("../../gn/skia.gni")
 
 declare_args() {
   skia_use_system_icu = is_official_build && !is_canvaskit
+  skia_embed_icu_data = false
 }
 
 icu_sources = [
