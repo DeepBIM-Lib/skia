@@ -98,3 +98,62 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 30
+
+  release:
+    name: Publish SDK packages
+    needs: [windows, linux]
+    if: github.ref == 'refs/heads/chrome/m148' || github.ref == 'refs/heads/nex/m148'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Skia-m148-*
+          merge-multiple: true
+          path: dist
+      - name: Publish release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd dist
+
+          archives=(
+            "Skia-m148-${GITHUB_SHA}-windows-Debug-x64-MDd.zip"
+            "Skia-m148-${GITHUB_SHA}-windows-Release-x64-MD.zip"
+            "Skia-m148-${GITHUB_SHA}-linux-Debug-x64-gcc11-abi1.zip"
+            "Skia-m148-${GITHUB_SHA}-linux-Release-x64-gcc11-abi1.zip"
+          )
+          for archive in "${archives[@]}"; do
+            if [[ ! -s "$archive" ]]; then
+              echo "::error::Missing or empty SDK archive: $archive"
+              exit 1
+            fi
+          done
+          sha256sum "${archives[@]}" > SHA256SUMS
+
+          tag="nex-skia-m148-${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          printf '%s\n' \
+            "Skia m148 static SDK packages for source commit ${GITHUB_SHA}." \
+            "" \
+            "Branch: ${GITHUB_REF_NAME}." \
+            "Workflow: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            "" \
+            "Windows x64: Debug /MDd and Release /MD." \
+            "Linux x64: Debug and Release, GCC 11, libstdc++ ABI 1." \
+            "Ganesh is enabled; Graphite and all concrete GPU backends are disabled." \
+            "" \
+            "Use matching headers, libraries and ICU data from the same build." \
+            "Verify downloaded archives with SHA256SUMS." > release-notes.md
+
+          gh release create "$tag" "${archives[@]}" SHA256SUMS \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Nex Skia m148 ${GITHUB_SHA:0:10} (run ${GITHUB_RUN_ID}.${GITHUB_RUN_ATTEMPT})" \
+            --notes-file release-notes.md --draft
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false
+
+          release_url=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
+          printf '### SDK release\n\n[%s](%s)\n' "$tag" "$release_url" >> "$GITHUB_STEP_SUMMARY"
